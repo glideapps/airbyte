@@ -10,7 +10,7 @@ jsonschema = "^4.22.0"
 
 [tool.poetry.group.dev.dependencies]
 isort = "5.6.4"
-black = "~22.3.0"
+black = "~24.3.0"
 ruff = "^0.4"
 poethepoet = "^0.26.1"
 
