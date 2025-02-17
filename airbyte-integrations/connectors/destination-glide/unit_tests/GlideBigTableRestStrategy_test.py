@@ -73,6 +73,7 @@ class TestGlideBigTableRestStrategy(unittest.TestCase):
     def test_split_batches_on_413(self, mock_post):
         threshold_bytes = 200
         did_fail = False
+        sent_rows = []
 
         def side_effect(*args, **kwargs):
             payload = kwargs.get("json", [])
@@ -86,6 +87,8 @@ class TestGlideBigTableRestStrategy(unittest.TestCase):
             else:
                 mock_response.status_code = 200
                 mock_response._content = b"OK"
+                nonlocal sent_rows
+                sent_rows.extend(payload)
             return mock_response
 
         mock_post.side_effect = side_effect
@@ -101,6 +104,7 @@ class TestGlideBigTableRestStrategy(unittest.TestCase):
         self.gbt.add_rows(large_number_of_rows)
 
         self.assertTrue(did_fail)
+        self.assertEqual(large_number_of_rows, sent_rows)
 
     def test_commit_with_pre_existing_table(self):
         with patch.object(requests, "post") as mock_post:
