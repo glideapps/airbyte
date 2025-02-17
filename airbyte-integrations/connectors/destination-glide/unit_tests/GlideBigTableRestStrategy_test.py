@@ -4,6 +4,7 @@ import unittest
 from unittest import skip
 from unittest.mock import patch
 import uuid
+from requests.exceptions import HTTPError
 
 
 class TestGlideBigTableRestStrategy(unittest.TestCase):
@@ -51,6 +52,22 @@ class TestGlideBigTableRestStrategy(unittest.TestCase):
 
         self.assertEqual(1, mock_post.call_count)
         self.assertEqual(mock_post.call_args.kwargs["json"], test_rows)
+
+    @patch.object(requests, "post")
+    def test_add_rows_413(self, mock_post):
+        self.gbt.batch_size = 1
+        mock_post.return_value.status_code = 413
+        mock_post.return_value.text = "Payload Too Large"
+        mock_post.return_value.raise_for_status.side_effect = HTTPError("413 Client Error: Payload Too Large")
+
+        with self.assertRaises(Exception) as context:
+            self.gbt.add_rows([
+                {"test-str": "one", "test-num": 1},
+                {"test-str": "two", "test-num": 2},
+                {"test-str": "three", "test-num": 3},
+                {"test-str": "four", "test-num": 4}])
+
+        self.assertIn("Failed to post rows batch", str(context.exception))
 
     def test_commit_with_pre_existing_table(self):
         with patch.object(requests, "post") as mock_post:

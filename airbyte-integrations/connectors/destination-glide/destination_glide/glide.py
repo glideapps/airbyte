@@ -137,6 +137,7 @@ class GlideBigTableRestStrategy(GlideBigTableBase):
         try:
             r.raise_for_status()
         except Exception as e:
+            # FIXME: if this is a 413, make the batch size smaller and retry
             raise Exception(f"Failed to post rows batch to {path} : {r.text}") from e  # nopep8
 
         logger.info(f"Successfully posted {len(rows)} rows to {path}")  # nopep8
