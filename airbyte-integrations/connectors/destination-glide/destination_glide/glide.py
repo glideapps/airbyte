@@ -123,25 +123,39 @@ class GlideBigTableRestStrategy(GlideBigTableBase):
 
     def _flush_buffer(self):
         rows = self.buffer
-        if len(rows) == 0:
+        if not rows:
             return
         self.buffer = []
 
-        path = f"stashes/{self.stash_id}/{self.stash_serial}"
-        logger.debug(f"Flushing {len(rows)} rows to {path} ...")
-        r = requests.post(
-            self.url(path),
-            headers=self.headers(),
-            json=rows
-        )
-        try:
-            r.raise_for_status()
-        except Exception as e:
-            # FIXME: if this is a 413, make the batch size smaller and retry
-            raise Exception(f"Failed to post rows batch to {path} : {r.text}") from e  # nopep8
+        start_idx = 0
+        chunk_size = len(rows)
+        stash_serial = self.stash_serial
+        while start_idx < len(rows):
+            chunk = rows[start_idx : start_idx + chunk_size]
+            path = f"stashes/{self.stash_id}/{stash_serial}"
+            logger.debug(f"Flushing {len(chunk)} rows to {path} ...")
 
-        logger.info(f"Successfully posted {len(rows)} rows to {path}")  # nopep8
-        self.stash_serial += 1
+            r = requests.post(
+                self.url(path),
+                headers=self.headers(),
+                json=chunk
+            )
+            try:
+                r.raise_for_status()
+            except requests.HTTPError as e:
+                if r.status_code == 413 and chunk_size > 1:
+                    chunk_size = max(1, chunk_size // 2)
+                    logger.info(f"413 Payload Too Large. Reducing chunk size to {chunk_size} and retrying.")
+                    continue
+                raise Exception(f"Failed to post rows batch to {path} : {r.text}") from e
+
+            logger.info(f"Successfully posted {len(chunk)} rows to {path}")
+            stash_serial += 1
+            start_idx += chunk_size
+        
+        # We only set the stash serial if the flush of all rows was
+        # successful, otherwise we could end up with duplicate rows.
+        self.stash_serial = stash_serial
 
     def add_row(self, row: BigTableRow) -> None:
         self.buffer.append(row)

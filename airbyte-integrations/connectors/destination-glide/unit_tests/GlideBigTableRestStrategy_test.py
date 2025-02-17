@@ -5,7 +5,7 @@ from unittest import skip
 from unittest.mock import patch
 import uuid
 from requests.exceptions import HTTPError
-
+import json
 
 class TestGlideBigTableRestStrategy(unittest.TestCase):
     api_host = "https://test-api-host.com"
@@ -68,6 +68,39 @@ class TestGlideBigTableRestStrategy(unittest.TestCase):
                 {"test-str": "four", "test-num": 4}])
 
         self.assertIn("Failed to post rows batch", str(context.exception))
+
+    @patch.object(requests, "post")
+    def test_split_batches_on_413(self, mock_post):
+        threshold_bytes = 200
+        did_fail = False
+
+        def side_effect(*args, **kwargs):
+            payload = kwargs.get("json", [])
+            payload_size = len(json.dumps(payload).encode("utf-8"))
+            mock_response = requests.Response()
+            if payload_size > threshold_bytes:
+                mock_response.status_code = 413
+                mock_response._content = b"Payload Too Large"
+                nonlocal did_fail
+                did_fail = True
+            else:
+                mock_response.status_code = 200
+                mock_response._content = b"OK"
+            return mock_response
+
+        mock_post.side_effect = side_effect
+
+        # Force small flushes to test smaller batches
+        self.gbt.batch_size = 2
+
+        # Attempt to add rows that will exceed threshold if posted all at once
+        large_number_of_rows = [
+            {"test-str": "foo " * 30, "test-num": i}  # repeated strings for size
+            for i in range(10)
+        ]
+        self.gbt.add_rows(large_number_of_rows)
+
+        self.assertTrue(did_fail)
 
     def test_commit_with_pre_existing_table(self):
         with patch.object(requests, "post") as mock_post:
