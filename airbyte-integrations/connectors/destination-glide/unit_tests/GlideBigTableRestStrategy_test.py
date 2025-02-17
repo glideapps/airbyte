@@ -106,6 +106,42 @@ class TestGlideBigTableRestStrategy(unittest.TestCase):
         self.assertTrue(did_fail)
         self.assertEqual(large_number_of_rows, sent_rows)
 
+    @patch.object(requests, "post")
+    def test_split_batches_on_413_varied_thresholds(self, mock_post):
+        thresholds = [200, 512, 1024, 2048, 8192]
+        for threshold_bytes in thresholds:
+            with self.subTest(threshold_bytes=threshold_bytes):
+                did_fail = False
+                sent_rows = []
+
+                def side_effect(*args, **kwargs):
+                    payload = kwargs.get("json", [])
+                    payload_size = len(json.dumps(payload).encode("utf-8"))
+                    mock_response = requests.Response()
+                    if payload_size > threshold_bytes:
+                        mock_response.status_code = 413
+                        mock_response._content = b"Payload Too Large"
+                        nonlocal did_fail
+                        did_fail = True
+                    else:
+                        mock_response.status_code = 200
+                        mock_response._content = b"OK"
+                        sent_rows.extend(payload)
+                    return mock_response
+
+                mock_post.reset_mock()
+                mock_post.side_effect = side_effect
+
+                self.gbt.batch_size = 2
+                large_number_of_rows = [
+                    {"test-str": "foo " * 30, "test-num": i}
+                    for i in range(10)
+                ]
+                self.gbt.add_rows(large_number_of_rows)
+
+                self.assertTrue(did_fail or len(large_number_of_rows) == len(sent_rows))
+                self.assertEqual(large_number_of_rows, sent_rows)
+
     def test_commit_with_pre_existing_table(self):
         with patch.object(requests, "post") as mock_post:
             TEST_ROW_COUNT = self.batch_size
