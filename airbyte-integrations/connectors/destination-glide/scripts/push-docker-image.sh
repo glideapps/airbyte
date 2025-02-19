@@ -11,11 +11,12 @@ LOCAL_BUILT_IMAGE_TAG_ARM64=dev-linux-arm64
 
 LOCAL_BUILT_IMAGE_NAME=airbyte/destination-glide
 # GLIDE_DOCKER_IMAGE_NAME is really only useful if we want to use it entirely in Airbyte OSS. To use in Airbyte cloud we *must* push to the airbyte-managed repo.
-#GLIDE_DOCKER_IMAGE_NAME=us-central1-docker.pkg.dev/glide-connectors/airbyte-glide-destination/destination-glide
+GLIDE_DOCKER_IMAGE_NAME=us-central1-docker.pkg.dev/glide-connectors/airbyte-glide-destination/destination-glide
 
 # AIRBYTE_DOCKER_IMAGE_NAME is the repo we use for Airbyte's Cloud instance.
 GLIDE_AT_AIRBYTE_COMPANY_NAME=heyglide 
-AIRBYTE_DOCKER_IMAGE_NAME=us-central1-docker.pkg.dev/airbyte-custom-connectors/$GLIDE_AT_AIRBYTE_COMPANY_NAME/destination-glide
+#AIRBYTE_DOCKER_IMAGE_NAME=us-central1-docker.pkg.dev/airbyte-custom-connectors/$GLIDE_AT_AIRBYTE_COMPANY_NAME/destination-glide
+AIRBYTE_DOCKER_IMAGE_NAME="$GLIDE_DOCKER_IMAGE_NAME"
 
 echo "Will push to remote image repository: $AIRBYTE_DOCKER_IMAGE_NAME"
 
