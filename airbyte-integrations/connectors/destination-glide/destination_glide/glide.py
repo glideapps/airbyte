@@ -135,7 +135,7 @@ class GlideBigTableRestStrategy(GlideBigTableBase):
             path = f"stashes/{self.stash_id}/{stash_serial}"
             logger.debug(f"Flushing {len(chunk)} rows to {path} ...")
 
-            r = requests.post(
+            r = requests.put(
                 self.url(path),
                 headers=self.headers(),
                 json=chunk
@@ -147,9 +147,9 @@ class GlideBigTableRestStrategy(GlideBigTableBase):
                     chunk_size = max(1, chunk_size // 2)
                     logger.info(f"413 Payload Too Large. Reducing chunk size to {chunk_size} and retrying.")
                     continue
-                raise Exception(f"Failed to post rows batch to {path} : {r.text}") from e
+                raise Exception(f"Failed to put rows batch to {path} : {r.text}") from e
 
-            logger.info(f"Successfully posted {len(chunk)} rows to {path}")
+            logger.info(f"Successfully put {len(chunk)} rows to {path}")
             stash_serial += 1
             start_idx += chunk_size
         
